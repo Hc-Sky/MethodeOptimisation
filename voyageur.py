@@ -161,22 +161,21 @@ def gen_recuit(villes, itineraire, temps):
     lignes_apres = gen_lignes(villes, itin_perm)
     dist_apres = longueur(lignes_apres)
 
-    # Calcul de la différence de distance
-    delta = dist_apres - dist_avant
+    # Choix aléatoire pour l'acceptation suivant t(x)=1/(1+x)
+    alea = np.random.random()
+    temperature = 1.0 / (1 + temps)
 
-    # Si la nouvelle solution est meilleure, on l'accepte toujours
-    if delta <= 0:
-        return dist_apres, itin_perm
+    if dist_avant <= dist_apres:
+        dmin, itin_min = dist_avant, itineraire
+        dmax, itin_max = dist_apres, itin_perm
     else:
-        # Sinon on l'accepte avec une probabilité qui diminue avec le temps
-        # et qui est d'autant plus faible que delta est grand
-        temperature = 1.0 / (1 + 0.001 * temps)  # Refroidissement plus lent
-        proba_acceptation = np.exp(-delta / temperature)
+        dmin, itin_min = dist_apres, itin_perm
+        dmax, itin_max = dist_avant, itineraire
 
-        if np.random.rand() < proba_acceptation:
-            return dist_apres, itin_perm
-        else:
-            return dist_avant, itineraire
+    if alea < temperature:
+        return dmax, itin_max
+    else:
+        return dmin, itin_min
 
 def gen_recuit_sim(villes, itineraire, temps, itinmax):
     """Applique une permutation aléatoire avec acceptation de type recuit simulé amélioré.
@@ -228,7 +227,8 @@ def gen_recuit_sim(villes, itineraire, temps, itinmax):
 
     # Détermination de l'itinéraire final selon le critère modifié
     alea = np.random.random()
-    diff_dist = dist_avant - dist_apres
+    # delta positif si la permutation est moins bonne
+    diff_dist = dist_apres - dist_avant
     proba = np.exp(3.5 * diff_dist * temperature)
 
     if alea < proba:
@@ -344,7 +344,7 @@ def exercice5(villes, itineraire):
     itinmax = 5000 * len(itineraire)
 
     for t in range(itinmax):
-        dist, itineraire = gen_recuit(villes, itineraire, t)
+        itineraire = gen_recuit_sim(villes, itineraire, t, itinmax)
 
     # Calcul de la distance finale
     lignes = gen_lignes(villes, itineraire)

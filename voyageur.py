@@ -107,6 +107,37 @@ def faire_ppv(villes):
 
     return itineraireppv
 
+def gen_transposition(villes, itineraire):
+    """Effectue une permutation aléatoire de deux villes si elle améliore la distance.
+
+    Args:
+        villes (list[tuple]): Coordonnées des villes.
+        itineraire (list[int]): Itinéraire courant.
+
+    Returns:
+        tuple: (distance minimale, itinéraire correspondant)
+    """
+    # Choix de deux positions distinctes au hasard dans l'itinéraire
+    i, j = np.random.choice(len(itineraire), size=2, replace=False)
+
+    # Calcul de la distance actuelle
+    lignes_avant = gen_lignes(villes, itineraire)
+    dist_avant = longueur(lignes_avant)
+
+    # Création d'une copie et permutation des deux positions
+    itineraire_perm = itineraire.copy()
+    itineraire_perm[i], itineraire_perm[j] = itineraire_perm[j], itineraire_perm[i]
+
+    # Calcul de la distance après permutation
+    lignes_apres = gen_lignes(villes, itineraire_perm)
+    dist_apres = longueur(lignes_apres)
+
+    if dist_apres < dist_avant:
+        return dist_apres, itineraire_perm
+    else:
+        return dist_avant, itineraire
+
+
 def exercice1(villes, itineraire):
     """
     Affiche la distance totale, trace l'itinéraire et affiche le temps de calcul.
@@ -138,6 +169,24 @@ def exercice2(villes):
     print(f"Temps de calcul : {end - start:.4f} secondes")
     return itineraireppv
 
+def exercice3(villes, itineraire):
+    """Améliore l'itinéraire par transpositions aléatoires."""
+    start = time.time()
+    dist = None
+    for _ in range(100 * len(itineraire)):
+        dist, itineraire = gen_transposition(villes, itineraire)
+
+    print(f"Distance totale après transpositions : {dist:.4f}")
+    trace_itineraire(
+        villes,
+        itineraire,
+        "Itinéraire après transpositions",
+        "itineraire_transpositions",
+    )
+    end = time.time()
+    print(f"Temps de calcul : {end - start:.4f} secondes")
+    return itineraire
+
 if __name__ == "__main__":
     N = 40  # Nombre de villes
     villes, itineraire = gen_coord(N)
@@ -148,6 +197,9 @@ if __name__ == "__main__":
 
     print("\n=== Exercice 2: Algorithme du plus proche voisin ===")
     itineraire_ppv = exercice2(villes)
+
+    print("\n=== Exercice 3: Transpositions aléatoires ===")
+    exercice3(villes, itineraire_ppv)
 
 
 

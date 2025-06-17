@@ -137,6 +137,130 @@ def gen_transposition(villes, itineraire):
     else:
         return dist_avant, itineraire
 
+def gen_recuit(villes, itineraire, temps):
+    """Applique une permutation aléatoire avec acceptation de type recuit simulé.
+
+    Args:
+        villes (list[tuple]): Coordonnées des villes.
+        itineraire (list[int]): Itinéraire courant.
+        temps (int): Temps discret influençant la température.
+
+    Returns:
+        tuple: (distance retenue, itinéraire correspondant)
+    """
+    # Choix de deux positions distinctes
+    i, j = np.random.choice(len(itineraire), size=2, replace=False)
+
+    # Distance avant permutation
+    lignes_avant = gen_lignes(villes, itineraire)
+    dist_avant = longueur(lignes_avant)
+
+    # Itinéraire après permutation
+    itin_perm = itineraire.copy()
+    itin_perm[i], itin_perm[j] = itin_perm[j], itin_perm[i]
+    lignes_apres = gen_lignes(villes, itin_perm)
+    dist_apres = longueur(lignes_apres)
+
+    # Calcul de la différence de distance
+    delta = dist_apres - dist_avant
+
+    # Si la nouvelle solution est meilleure, on l'accepte toujours
+    if delta <= 0:
+        return dist_apres, itin_perm
+    else:
+        # Sinon on l'accepte avec une probabilité qui diminue avec le temps
+        # et qui est d'autant plus faible que delta est grand
+        temperature = 1.0 / (1 + 0.001 * temps)  # Refroidissement plus lent
+        proba_acceptation = np.exp(-delta / temperature)
+
+        if np.random.rand() < proba_acceptation:
+            return dist_apres, itin_perm
+        else:
+            return dist_avant, itineraire
+
+def gen_recuit_sim(villes, itineraire, temps, itinmax):
+    """Applique une permutation aléatoire avec acceptation de type recuit simulé amélioré.
+
+    Args:
+        villes (list[tuple]): Coordonnées des villes.
+        itineraire (list[int]): Itinéraire courant.
+        temps (int): Temps discret influençant la température.
+        itinmax (int): Nombre maximum d'appels à la fonction gen_recuit_sim.
+
+    Returns:
+        list: itinéraire final après optimisation
+    """
+    global mindistance, minitineraire, minidx
+
+    # Choix de deux positions distinctes au hasard
+    i, j = np.random.choice(len(itineraire), size=2, replace=False)
+    if i > j:
+        i, j = j, i  # On s'assure que i < j
+
+    # Calcul de la distance avant modification
+    lignes_avant = gen_lignes(villes, itineraire)
+    dist_avant = longueur(lignes_avant)
+
+    # Création d'un nouvel itinéraire selon le type de mélange
+    itin_perm = itineraire.copy()
+
+    # Tirage aléatoire pour déterminer le type de mélange
+    type_melange = np.random.random()  # Nombre entre 0 et 1
+
+    if type_melange < 0.10:
+        # Cas 1 (10%): Permutation simple de deux villes
+        itin_perm[i], itin_perm[j] = itin_perm[j], itin_perm[i]
+    elif type_melange < 0.55:
+        # Cas 2 (45%): Inversion de l'ordre des villes entre i et j inclus
+        itin_perm[i:j+1] = itin_perm[i:j+1][::-1]
+    else:
+        # Cas 3 (45%): Permutation aléatoire des villes entre i et j inclus
+        segment = itin_perm[i:j+1].copy()
+        np.random.shuffle(segment)
+        itin_perm[i:j+1] = segment
+
+    # Calcul de la distance après modification
+    lignes_apres = gen_lignes(villes, itin_perm)
+    dist_apres = longueur(lignes_apres)
+
+    # Calcul de la température selon la nouvelle fonction t
+    temperature = 1.0 / (1 + temps / (itinmax / 200))
+
+    # Détermination de l'itinéraire final selon le critère modifié
+    alea = np.random.random()
+    diff_dist = dist_avant - dist_apres
+    proba = np.exp(3.5 * diff_dist * temperature)
+
+    if alea < proba:
+        # On prend la distance maximale (qui pourrait être moins bonne)
+        if dist_avant >= dist_apres:
+            itineraire_final = itineraire
+            distance_finale = dist_avant
+        else:
+            itineraire_final = itin_perm
+            distance_finale = dist_apres
+    else:
+        # On prend la distance minimale (qui est meilleure)
+        if dist_avant <= dist_apres:
+            itineraire_final = itineraire
+            distance_finale = dist_avant
+        else:
+            itineraire_final = itin_perm
+            distance_finale = dist_apres
+
+    # Mise à jour des variables globales avec gestion de la dernière amélioration
+    if (temps - minidx) > (0.04 * itinmax):
+        # Si aucune amélioration depuis longtemps, on revient à la dernière sauvegarde
+        if len(minitineraire) > 0:
+            itineraire_final = minitineraire.copy()
+    else:
+        # Si on trouve une meilleure solution, on met à jour les variables globales
+        if distance_finale < mindistance:
+            mindistance = distance_finale
+            minitineraire = itineraire_final.copy()
+            minidx = temps
+
+    return itineraire_final
 
 def exercice1(villes, itineraire):
     """
@@ -150,7 +274,7 @@ def exercice1(villes, itineraire):
     print(f"Distance totale de l'itinéraire : {dist:.4f}")
     trace_itineraire(villes, itineraire, "Itinéraire initial", "itineraire_initial")
     end = time.time()
-    print(f"Temps de calcul : {end - start:.4f} secondes")
+    print(f"Temps de calcul : {(end - start) * 1000:.2f} millisecondes")
 
 def exercice2(villes):
     """
@@ -166,7 +290,7 @@ def exercice2(villes):
     print(f"Distance totale avec l'algorithme du plus proche voisin : {dist:.4f}")
     trace_itineraire(villes, itineraireppv, "Itinéraire avec l'algorithme du plus proche voisin", "itineraire_ppv")
     end = time.time()
-    print(f"Temps de calcul : {end - start:.4f} secondes")
+    print(f"Temps de calcul : {(end - start) * 1000:.2f} millisecondes")
     return itineraireppv
 
 def exercice3(villes, itineraire):
@@ -184,8 +308,59 @@ def exercice3(villes, itineraire):
         "itineraire_transpositions",
     )
     end = time.time()
-    print(f"Temps de calcul : {end - start:.4f} secondes")
+    print(f"Temps de calcul : {(end - start) * 1000:.2f} millisecondes")
     return itineraire
+
+def exercice4(villes, itineraire):
+    """Optimisation par l'algorithme du recuit simple."""
+
+    start = time.time()
+    dist = None
+    for t in range(5000 * len(itineraire)):
+        dist, itineraire = gen_recuit(villes, itineraire, t)
+
+    print(f"Distance totale après recuit : {dist:.4f}")
+    trace_itineraire(
+        villes,
+        itineraire,
+        "Itinéraire après recuit",
+        "itineraire_recuit",
+    )
+    end = time.time()
+    print(f"Temps de calcul : {(end - start) * 1000:.2f} millisecondes")
+    return itineraire
+
+def exercice5(villes, itineraire):
+    """Optimisation par l'algorithme du recuit standard avec les variables globales."""
+    global mindistance, minitineraire, minidx
+
+    # Initialisation des variables globales
+    lignes_initiales = gen_lignes(villes, itineraire)
+    mindistance = longueur(lignes_initiales)
+    minitineraire = itineraire.copy()
+    minidx = 0
+
+    start = time.time()
+    itinmax = 5000 * len(itineraire)
+
+    for t in range(itinmax):
+        dist, itineraire = gen_recuit(villes, itineraire, t)
+
+    # Calcul de la distance finale
+    lignes = gen_lignes(villes, itineraire)
+    dist = longueur(lignes)
+
+    print(f"Distance totale après recuit avec variables globales : {dist:.4f}")
+    trace_itineraire(
+        villes,
+        itineraire,
+        "Itinéraire après recuit avec variables globales",
+        "itineraire_recuit_globals",
+    )
+    end = time.time()
+    print(f"Temps de calcul : {(end - start) * 1000:.2f} millisecondes")
+    return itineraire
+
 
 if __name__ == "__main__":
     N = 40  # Nombre de villes
@@ -198,9 +373,11 @@ if __name__ == "__main__":
     print("\n=== Exercice 2: Algorithme du plus proche voisin ===")
     itineraire_ppv = exercice2(villes)
 
-    print("\n=== Exercice 3: Transpositions aléatoires ===")
-    exercice3(villes, itineraire_ppv)
+    print("\n=== Exercice 3: Amélioration par transpositions ===")
+    itineraire_transpose = exercice3(villes, itineraire_ppv)
 
+    print("\n=== Exercice 4: Optimisation par recuit simple ===")
+    itineraire_recuit = exercice4(villes, itineraire_transpose)
 
-
-
+    print("\n=== Exercice 5: Optimisation par recuit avec variables globales ===")
+    itineraire_final = exercice5(villes, itineraire_recuit)

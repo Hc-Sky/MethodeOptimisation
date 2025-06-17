@@ -227,7 +227,8 @@ def gen_recuit_sim(villes, itineraire, temps, itinmax):
 
     # Détermination de l'itinéraire final selon le critère modifié
     alea = np.random.random()
-    diff_dist = dist_avant - dist_apres
+    # delta positif si la permutation est moins bonne
+    diff_dist = dist_apres - dist_avant
     proba = np.exp(3.5 * diff_dist * temperature)
 
     if alea < proba:
